@@ -1,3 +1,5 @@
+
+
 # Machine Test
 
 ## Task 1: Install docker and set up docker swarm.
@@ -246,8 +248,107 @@ root@ip-172-31-83-67:~/flask_mysql_docker# curl http://arunsiby.tech:5000
 
 
 
+## Task 3: Deploy another docker stack with traefik service. The request coming to above app should be load balanced through traefik. So, when request hits it first reaches to traefik and then traefik should forward request to docker service.
 
 
+* Modified the compose file to add traefik service:
+  
+~~~
+# cat docker-compose.yml
+---
+
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:5.6
+    networks:
+      - flask_net
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: helloworld_db
+      MYSQL_USER: test_db
+      MYSQL_PASSWORD: test_db
+    ports:
+      - "3306:3306"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.resource == manager
+    volumes:
+      - type: bind
+        source: /root/volume/mysql
+        target: /var/lib/mysql
+
+  flask:
+    image: arunsiby369/test-flask:latest
+    networks:
+      - flask_net
+    depends_on:
+      - mysql
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - MYSQL_USER=test_db
+      - MYSQL_PASSWORD=test_db
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=helloworld_db
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.flask.rule=Host(`arunsiby.tech`)"
+        - "traefik.http.services.flask.loadbalancer.server.port=5000"
+      placement:
+        constraints:
+          - node.role == manager
+
+  traefik:
+    image: "traefik:v2.5"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    networks:
+      - flask_net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  flask_net:
+    external: true
+
+~~~
+
+
+* Deployed traefik stack
+
+~~~
+# docker stack deploy -c docker-compose.yml arun
+Since --detach=false was not specified, tasks will be created in the background.
+In a future release, --detach=false will become the default.
+Creating service arun_mysql
+Creating service arun_flask
+Creating service arun_traefik
+~~~
+
+![task3 1](https://github.com/arunsiby/Test/assets/21075710/4000f035-b612-44f1-9d94-8ac523b3731c)
+
+
+![task3 2](https://github.com/arunsiby/Test/assets/21075710/6c6a3448-8831-45d4-ad66-f48c843d36ef)
+
+![task3 3](https://github.com/arunsiby/Test/assets/21075710/8fb37ebb-ac02-4815-9f13-8f5f7b8dc26e)
 
 
 
