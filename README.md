@@ -115,7 +115,8 @@ CMD ["flask", "run", "--host=0.0.0.0"]
 
 ## app.py
 
-~~~cat app.py
+~~~
+cat app.py
 from flask import Flask, jsonify
 import mysql.connector
 import os
@@ -150,9 +151,9 @@ if __name__ == '__main__':
 
 ~~~
 
-## requirements.txt
+### requirements.txt
 ~~~
-# cat requirements.txt
+cat requirements.txt
 Flask
 mysql-connector-python
 ~~~
@@ -160,7 +161,7 @@ mysql-connector-python
 ### Build docker image for flask APP
 
 ~~~
-# docker image ls
+docker image ls
 REPOSITORY                 TAG       IMAGE ID       CREATED        SIZE
 arunsiby369/test-flask     latest    1bc29eb05c1f   3 hours ago    231MB
 
@@ -169,7 +170,7 @@ arunsiby369/test-flask     latest    1bc29eb05c1f   3 hours ago    231MB
 Updated the compose file to deploy the Flask app
 
 ~~~
-# cat docker-compose.yml
+cat docker-compose.yml
 ---
 
 version: '3.8'
@@ -224,11 +225,11 @@ networks:
 ~~~
 
 ~~~
-# docker stack deploy -c docker-compose.yml arun
+docker stack deploy -c docker-compose.yml arun
 Creating service arun_mysql
 Creating service arun_flask
 
-# docker service ls
+docker service ls
 ID             NAME           MODE         REPLICAS   IMAGE                           PORTS
 7jqrpcegszhu   arun_flask     replicated   1/1        arunsiby369/test-flask:latest   *:5000->5000/tcp
 r0uw00olh3ej   arun_mysql     replicated   1/1        mysql:5.6                       *:3306->3306/tcp
@@ -254,7 +255,7 @@ root@ip-172-31-83-67:~/flask_mysql_docker# curl http://arunsiby.tech:5000
 * Modified the compose file to add traefik service:
   
 ~~~
-# cat docker-compose.yml
+cat docker-compose.yml
 ---
 
 version: '3.8'
@@ -335,7 +336,7 @@ networks:
 * Deployed traefik stack
 
 ~~~
-# docker stack deploy -c docker-compose.yml arun
+docker stack deploy -c docker-compose.yml arun
 Since --detach=false was not specified, tasks will be created in the background.
 In a future release, --detach=false will become the default.
 Creating service arun_mysql
