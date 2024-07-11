@@ -30,4 +30,224 @@ docker swarm init
 ![task1 3](https://github.com/arunsiby/Test/assets/21075710/1e9fb585-79f7-4e3a-b839-c4c25747cc7c)
 
 
-  
+
+## Task2: Deploy a simple docker stack which contains two services (use compose file)
+### 1. MySQL service with volume.
+### 2. Simple app service (you can find some simple Flask apps from communities) which should connect to the above MySQL
+
+* For deploying stack, created a docker-compose.yml with database service and inserted tables contents.
+
+~~~
+
+---
+
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:5.6
+    networks:
+      - flask_net
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: helloworld_db
+      MYSQL_USER: test_db
+      MYSQL_PASSWORD: test_db
+    ports:
+      - "3306:3306"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.resource == manager
+    volumes:
+      - type: bind
+        source: /root/volume/mysql
+        target: /var/lib/mysql
+
+networks:
+  flask_net:
+    external: true
+
+
+~~~
+
+~~~
+#docker stack deploy -c docker-compose.yml arun
+
+# docker service ls
+ID             NAME           MODE         REPLICAS   IMAGE                           PORTS
+r0uw00olh3ej   arun_mysql     replicated   1/1        mysql:5.6                       *:3306->3306/tcp
+
+~~~
+
+* For creating the image for Flask app, I have created a Dockerfile, app.py and requirements.txt  in the app directory and build the image for flask app
+
+~~~
+ cat Dockerfile
+# Use the official Python image from the Docker Hub
+FROM python:3.7-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the requirements file
+COPY requirements.txt .
+
+# Install the dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the application files
+COPY . .
+
+# Expose the port the app runs on
+EXPOSE 5000
+
+# Define environment variable
+ENV FLASK_APP=app.py
+
+# Run the application
+CMD ["flask", "run", "--host=0.0.0.0"]
+~~~
+
+## app.py
+
+~~~cat app.py
+from flask import Flask, jsonify
+import mysql.connector
+import os
+
+app = Flask(__name__)
+
+# MySQL configurations from environment variables
+db_config = {
+    'user': os.getenv('MYSQL_USER'),
+    'password': os.getenv('MYSQL_PASSWORD'),
+    'host': os.getenv('MYSQL_HOST'),
+    'database': os.getenv('MYSQL_DATABASE')
+}
+
+def get_db_connection():
+    connection = mysql.connector.connect(**db_config)
+    return connection
+
+@app.route('/')
+def hello_world():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT message FROM messages WHERE id=1")
+    result = cursor.fetchone()
+    message = result[0] if result else "No message found."
+    cursor.close()
+    conn.close()
+    return jsonify({"message": message})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+~~~
+
+## requirements.txt
+~~~
+# cat requirements.txt
+Flask
+mysql-connector-python
+~~~
+
+### Build docker image for flask APP
+
+~~~
+# docker image ls
+REPOSITORY                 TAG       IMAGE ID       CREATED        SIZE
+arunsiby369/test-flask     latest    1bc29eb05c1f   3 hours ago    231MB
+
+~~~
+
+Updated the compose file to deploy the Flask app
+
+~~~
+# cat docker-compose.yml
+---
+
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:5.6
+    networks:
+      - flask_net
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: helloworld_db
+      MYSQL_USER: test_db
+      MYSQL_PASSWORD: test_db
+    ports:
+      - "3306:3306"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.resource == manager
+    volumes:
+      - type: bind
+        source: /root/volume/mysql
+        target: /var/lib/mysql
+
+  flask:
+    image: arunsiby369/test-flask:latest
+    networks:
+      - flask_net
+    depends_on:
+      - mysql
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - MYSQL_USER=test_db
+      - MYSQL_PASSWORD=test_db
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=helloworld_db
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  flask_net:
+    external: true
+
+~~~
+
+~~~
+# docker stack deploy -c docker-compose.yml arun
+Creating service arun_mysql
+Creating service arun_flask
+
+# docker service ls
+ID             NAME           MODE         REPLICAS   IMAGE                           PORTS
+7jqrpcegszhu   arun_flask     replicated   1/1        arunsiby369/test-flask:latest   *:5000->5000/tcp
+r0uw00olh3ej   arun_mysql     replicated   1/1        mysql:5.6                       *:3306->3306/tcp
+
+~~~
+
+Deployment is completed and it is woking
+~~~
+root@ip-172-31-83-67:~/flask_mysql_docker# curl http://arunsiby.tech:5000
+{
+  "message": "This is loading from database"
+}
+~~~
+
+
+![task2 1](https://github.com/arunsiby/Test/assets/21075710/5111548f-dc3b-4249-bf47-f6a0296f9b9c)
+
+
+
+
+
+
+
+
